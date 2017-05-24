@@ -25,6 +25,7 @@ Requirements
 TODO
 ----
 - Implement encrypted key exchange
+- Update makefile and IAR project
 
 Note
 ----
