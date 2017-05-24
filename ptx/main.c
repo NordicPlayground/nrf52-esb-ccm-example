@@ -50,13 +50,22 @@
 #include "boards.h"
 #include "nrf_delay.h"
 #include "app_util.h"
+#include "app_timer.h"
+#include "app_defines.h"
+#include "ccm_crypt.h"
 #define NRF_LOG_MODULE_NAME "APP"
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 
-static nrf_esb_payload_t        tx_payload = NRF_ESB_CREATE_PAYLOAD(0, 0x01, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00);
+APP_TIMER_DEF(m_update_timer_id); 
 
-static nrf_esb_payload_t        rx_payload;
+static nrf_esb_payload_t            tx_payload = NRF_ESB_CREATE_PAYLOAD(0, 0x01, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00);
+
+static nrf_esb_payload_t            rx_payload;
+
+static ccm_pair_request_packet_t    pair_request_packet;
+
+static bool encryption_enabled = false;
 
 /*lint -save -esym(40, BUTTON_1) -esym(40, BUTTON_2) -esym(40, BUTTON_3) -esym(40, BUTTON_4) -esym(40, LED_1) -esym(40, LED_2) -esym(40, LED_3) -esym(40, LED_4) */
 
@@ -99,7 +108,7 @@ void clocks_start( void )
 
 void gpio_init( void )
 {
-    nrf_gpio_range_cfg_output(8, 15);
+    bsp_board_buttons_init();
     bsp_board_leds_init();
 }
 
@@ -135,6 +144,65 @@ uint32_t esb_init( void )
     return err_code;
 }
 
+static void send_payload(uint8_t *payload, uint32_t payload_length)
+{
+    NRF_LOG_DEBUG("Transmitting packet %02x\r\n", payload[0]);
+    tx_payload.noack = false;
+    tx_payload.data[0] = APP_CMD_PAYLOAD;
+    memcpy(&tx_payload.data[1], payload, payload_length);
+    tx_payload.length = payload_length + 1;
+    if (nrf_esb_write_payload(&tx_payload) != NRF_SUCCESS)
+    {
+        NRF_LOG_WARNING("Sending packet failed\r\n");
+    }
+}
+
+static void send_pairing_request()
+{
+    NRF_LOG_INFO("Transmitting pair request packet\r\n");
+    
+    ccm_crypt_pair_request_prepare(0, &pair_request_packet);
+    
+    tx_payload.noack = false;
+    tx_payload.data[0] = APP_CMD_PAIR_REQUEST;
+    memcpy(&tx_payload.data[1], &pair_request_packet, sizeof(ccm_pair_request_packet_t));
+    tx_payload.length = 1 + sizeof(ccm_pair_request_packet_t);
+    if (nrf_esb_write_payload(&tx_payload) != NRF_SUCCESS)
+    {
+        NRF_LOG_WARNING("Sending packet failed\r\n");
+    }
+}
+
+static void send_encrypted_payload(uint8_t *payload, uint32_t payload_length)
+{
+    tx_payload.noack = false;
+    tx_payload.data[0] = APP_CMD_ENCRYPTED_PAYLOAD;
+    ccm_crypt_packet_encrypt(payload, payload_length, &tx_payload.data[1]);
+    tx_payload.length = 1 + payload_length + 4;
+    if (nrf_esb_write_payload(&tx_payload) != NRF_SUCCESS)
+    {
+        NRF_LOG_WARNING("Sending packet failed\r\n");
+    }
+}
+
+static void update_timer(void *p_context)
+{
+    static uint8_t payload[8] = {0,0,0,0,0,0,0,0};
+    payload[0] = bsp_board_button_state_get(0);
+    payload[1] = bsp_board_button_state_get(1);
+    payload[2] = bsp_board_button_state_get(2);
+    
+    if(!encryption_enabled || bsp_board_button_state_get(3))
+    {
+        encryption_enabled = true;
+        send_pairing_request();
+    }
+    else
+    {
+        send_encrypted_payload(payload, 8);
+    }
+}
+
 
 int main(void)
 {
@@ -145,37 +213,38 @@ int main(void)
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
 
+    // Start the 32k clock.
+    NRF_CLOCK->TASKS_LFCLKSTART = 1;
+    
+    // Initialize timer module.
+    err_code = app_timer_init();
+    APP_ERROR_CHECK(err_code);    
+
+    // Create send packet timer.
+    err_code = app_timer_create(&m_update_timer_id, APP_TIMER_MODE_REPEATED, update_timer);
+    APP_ERROR_CHECK(err_code);
+    
+    // Start send packet timer.
+    err_code = app_timer_start(m_update_timer_id, APP_TIMER_TICKS(500), 0);
+    APP_ERROR_CHECK(err_code);
+    
     clocks_start();
 
     err_code = esb_init();
     APP_ERROR_CHECK(err_code);
 
+    ccm_crypt_init();
+
     bsp_board_leds_init();
 
-    NRF_LOG_INFO("Enhanced ShockBurst Transmitter Example running.\r\n");
+    NRF_LOG_INFO("ESB CCM example started (PTX)\r\n");
 
     while (true)
     {
-        NRF_LOG_DEBUG("Transmitting packet %02x\r\n", tx_payload.data[1]);
-
-        tx_payload.noack = false;
-        if (nrf_esb_write_payload(&tx_payload) == NRF_SUCCESS)
+        if (NRF_LOG_PROCESS() == false)
         {
-            // Toggle one of the LEDs.
-            nrf_gpio_pin_write(LED_1, !(tx_payload.data[1]%8>0 && tx_payload.data[1]%8<=4));
-            nrf_gpio_pin_write(LED_2, !(tx_payload.data[1]%8>1 && tx_payload.data[1]%8<=5));
-            nrf_gpio_pin_write(LED_3, !(tx_payload.data[1]%8>2 && tx_payload.data[1]%8<=6));
-            nrf_gpio_pin_write(LED_4, !(tx_payload.data[1]%8>3));
-            tx_payload.data[1]++;
+            
         }
-        else
-        {
-            NRF_LOG_WARNING("Sending packet failed\r\n");
-        }
-        
-        while (NRF_LOG_PROCESS() == true);
-        
-        nrf_delay_us(50000);
     }
 }
 /*lint -restore */

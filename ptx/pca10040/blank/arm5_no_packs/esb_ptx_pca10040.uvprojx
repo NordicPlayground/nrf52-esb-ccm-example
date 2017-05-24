@@ -335,7 +335,7 @@
               <MiscControls>--reduce_paths</MiscControls>
               <Define>BOARD_PCA10040 BSP_DEFINES_ONLY CONFIG_GPIO_AS_PINRESET ESB_PRESENT NRF52 NRF52832_XXAA NRF52_PAN_12 NRF52_PAN_15 NRF52_PAN_20 NRF52_PAN_31 NRF52_PAN_36 NRF52_PAN_51 NRF52_PAN_54 NRF52_PAN_55 NRF52_PAN_58 NRF52_PAN_64 NRF52_PAN_74</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\..\config;..\..\..\..\..\..\..\components;..\..\..\..\..\..\..\components\boards;..\..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\..\components\drivers_nrf\delay;..\..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\..\components\drivers_nrf\nrf_soc_nosd;..\..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\..\components\libraries\bsp;..\..\..\..\..\..\..\components\libraries\log;..\..\..\..\..\..\..\components\libraries\log\src;..\..\..\..\..\..\..\components\libraries\strerror;..\..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\..\components\proprietary_rf\esb;..\..\..\..\..\..\..\components\toolchain;..\..\..;..\..\..\..\..\..\..\external\segger_rtt;..\config</IncludePath>
+              <IncludePath>..\..\..\config;..\..\..\..\..\..\..\components;..\..\..\..\..\..\..\components\boards;..\..\..\..\..\..\..\components\drivers_nrf\common;..\..\..\..\..\..\..\components\drivers_nrf\delay;..\..\..\..\..\..\..\components\drivers_nrf\hal;..\..\..\..\..\..\..\components\drivers_nrf\nrf_soc_nosd;..\..\..\..\..\..\..\components\drivers_nrf\uart;..\..\..\..\..\..\..\components\libraries\bsp;..\..\..\..\..\..\..\components\libraries\log;..\..\..\..\..\..\..\components\libraries\log\src;..\..\..\..\..\..\..\components\libraries\strerror;..\..\..\..\..\..\..\components\libraries\util;..\..\..\..\..\..\..\components\proprietary_rf\esb;..\..\..\..\..\..\..\components\toolchain;..\..\..;..\..\..\..\..\..\..\external\segger_rtt;..\config;..\..\..\..\..\..\..\components\libraries\timer;..\..\..\..\common</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -388,6 +388,11 @@
               <FileName>sdk_config.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\config\sdk_config.h</FilePath>
+            </File>
+            <File>
+              <FileName>ccm_crypt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\common\ccm_crypt.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -443,6 +448,11 @@
               <FileName>nrf_strerror.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\..\..\components\libraries\strerror\nrf_strerror.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_timer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\..\..\components\libraries\timer\app_timer.c</FilePath>
             </File>
           </Files>
         </Group>

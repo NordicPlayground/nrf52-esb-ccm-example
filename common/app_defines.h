@@ -1,0 +1,6 @@
+#ifndef __APP_DEFINES_H
+#define __APP_DEFINES_H
+
+enum {APP_CMD_PAYLOAD, APP_CMD_ENCRYPTED_PAYLOAD, APP_CMD_PAIR_REQUEST} app_cmd_e;
+
+#endif

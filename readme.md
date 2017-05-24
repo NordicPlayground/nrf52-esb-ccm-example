@@ -10,6 +10,7 @@ Requirements
 
 TODO
 ----
+- Implement encrypted key exchange
 
 Note
 ----

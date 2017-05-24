@@ -48,6 +48,8 @@
 #include "nrf_gpio.h"
 #include "nrf_error.h"
 #include "boards.h"
+#include "app_defines.h"
+#include "ccm_crypt.h"
 
 #define NRF_LOG_MODULE_NAME "APP"
 #include "nrf_log.h"
@@ -56,6 +58,10 @@
 uint8_t led_nr;
 
 nrf_esb_payload_t rx_payload;
+
+static ccm_pair_request_packet_t pair_request_packet;
+
+static volatile bool rx_packet_received = false;
 
 /*lint -save -esym(40, BUTTON_1) -esym(40, BUTTON_2) -esym(40, BUTTON_3) -esym(40, BUTTON_4) -esym(40, LED_1) -esym(40, LED_2) -esym(40, LED_3) -esym(40, LED_4) */
 
@@ -71,16 +77,7 @@ void nrf_esb_event_handler(nrf_esb_evt_t const * p_event)
             break;
         case NRF_ESB_EVENT_RX_RECEIVED:
             NRF_LOG_DEBUG("RX RECEIVED EVENT\r\n");
-            if (nrf_esb_read_rx_payload(&rx_payload) == NRF_SUCCESS)
-            {
-                // Set LEDs identical to the ones on the PTX.
-                nrf_gpio_pin_write(LED_1, !(rx_payload.data[1]%8>0 && rx_payload.data[1]%8<=4));
-                nrf_gpio_pin_write(LED_2, !(rx_payload.data[1]%8>1 && rx_payload.data[1]%8<=5));
-                nrf_gpio_pin_write(LED_3, !(rx_payload.data[1]%8>2 && rx_payload.data[1]%8<=6));
-                nrf_gpio_pin_write(LED_4, !(rx_payload.data[1]%8>3));
-
-                NRF_LOG_DEBUG("Receiving packet: %02x\r\n", rx_payload.data[1]);
-            }
+            rx_packet_received = true;
             break;
     }
 }
@@ -98,6 +95,7 @@ void clocks_start( void )
 void gpio_init( void )
 {
     bsp_board_leds_init();
+    bsp_board_buttons_init();
 }
 
 
@@ -134,6 +132,8 @@ uint32_t esb_init( void )
 int main(void)
 {
     uint32_t err_code;
+    uint8_t decrypted_packet[32];
+    bool encryption_enabled = false;
 
     gpio_init();
 
@@ -144,14 +144,61 @@ int main(void)
 
     err_code = esb_init();
     APP_ERROR_CHECK(err_code);
+    
+    ccm_crypt_init();
 
-    NRF_LOG_INFO("Enhanced ShockBurst Receiver Example running.\r\n");
+    NRF_LOG_INFO("ESB CCM example started (PRX)\r\n");
 
     err_code = nrf_esb_start_rx();
     APP_ERROR_CHECK(err_code);
 
     while (true)
     {
+        if(rx_packet_received)
+        {
+            rx_packet_received = false;
+            while (nrf_esb_read_rx_payload(&rx_payload) == NRF_SUCCESS)
+            {
+                switch(rx_payload.data[0])
+                {
+                    case APP_CMD_PAYLOAD:
+                        NRF_LOG_INFO(" Payload received\r\n");
+                        NRF_LOG_HEXDUMP_INFO(&rx_payload.data[1], rx_payload.length-1);
+                        break;
+                    
+                    case APP_CMD_PAIR_REQUEST:
+                        NRF_LOG_INFO(" Pairing request received\r\n");
+                        memcpy(&pair_request_packet, &rx_payload.data[1], sizeof(pair_request_packet));
+                        ccm_crypt_pair_request_accept(0, &pair_request_packet);
+                        encryption_enabled = true;
+                        break;
+                    
+                    case APP_CMD_ENCRYPTED_PAYLOAD:
+                        if(encryption_enabled)
+                        {
+                            NRF_LOG_INFO(" Encrypted payload received\r\n");
+                            NRF_LOG_HEXDUMP_INFO(&rx_payload.data[1], rx_payload.length-1);                        
+                            err_code = ccm_crypt_packet_decrypt(&rx_payload.data[1], rx_payload.length - 1, decrypted_packet);
+                            if(err_code == CCM_CRYPT_SUCCESS)
+                            {
+                                NRF_LOG_HEXDUMP_INFO(decrypted_packet, rx_payload.length - 1 - 4);
+                                decrypted_packet[0] ? bsp_board_led_on(0) : bsp_board_led_off(0);
+                                decrypted_packet[1] ? bsp_board_led_on(1) : bsp_board_led_off(1);
+                                decrypted_packet[2] ? bsp_board_led_on(2) : bsp_board_led_off(2);
+                            }
+                            else if(err_code == CCM_CRYPT_INVALID_MIC)
+                            {
+                                NRF_LOG_WARNING("Invalid MIC!\r\n");
+                            }
+                        }
+                        else
+                        {
+                            NRF_LOG_WARNING("Encrypted packet received without having enabled encryption!\r\n");
+                        }
+                        break;                    
+                }
+            }
+        }
         if (NRF_LOG_PROCESS() == false)
         {
             __WFE();
