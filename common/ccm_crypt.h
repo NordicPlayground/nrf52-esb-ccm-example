@@ -35,7 +35,6 @@ typedef struct
 {
     uint8_t key[CCM_KEY_SIZE];
     uint64_t counter;
-    uint8_t _padding[8 - CCM_COUNTER_SIZE];
     uint8_t iv[CCM_IV_SIZE];    
 }ccm_data_t;
 
