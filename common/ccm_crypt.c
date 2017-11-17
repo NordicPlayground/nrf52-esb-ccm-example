@@ -35,6 +35,7 @@ uint32_t ccm_crypt_pair_request_prepare(ccm_passkey_t passkey, ccm_pair_request_
     ccm_rng_fill_buffer(m_pair_request_packet.iv,  CCM_IV_SIZE);
     memcpy(m_ccm_config.key, m_pair_request_packet.key, CCM_KEY_SIZE);
     memcpy(m_ccm_config.iv,  m_pair_request_packet.iv,  CCM_IV_SIZE);
+    m_ccm_config.direction = 0;
     m_ccm_config.counter = 0;
     NRF_CCM->CNFPTR = (uint32_t)&m_ccm_config;
     memcpy(request_out, &m_pair_request_packet, sizeof(ccm_pair_request_packet_t));
@@ -46,6 +47,7 @@ uint32_t ccm_crypt_pair_request_accept(ccm_passkey_t passkey, ccm_pair_request_p
 {
     memcpy(m_ccm_config.key, request->key, CCM_KEY_SIZE);
     memcpy(m_ccm_config.iv,  request->iv,  CCM_IV_SIZE);
+    m_ccm_config.direction = 0;
     m_ccm_config.counter = 0;
     NRF_CCM->CNFPTR = (uint32_t)&m_ccm_config;
     return CCM_CRYPT_SUCCESS;

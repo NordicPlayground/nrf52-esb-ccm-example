@@ -33,9 +33,10 @@ typedef uint8_t* ccm_passkey_t;
 
 typedef struct
 {
-    uint8_t key[CCM_KEY_SIZE];
+    uint8_t  key[CCM_KEY_SIZE];
     uint64_t counter;
-    uint8_t iv[CCM_IV_SIZE];    
+    uint8_t  direction;
+    uint8_t  iv[CCM_IV_SIZE];    
 }ccm_data_t;
 
 typedef struct 
